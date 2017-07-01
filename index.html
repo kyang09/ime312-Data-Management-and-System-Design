@@ -1,0 +1,703 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+<title>Task Assigner</title>
+<style type="text/css">
+/* http://meyerweb.com/eric/tools/css/reset/ 
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+    display: block;
+}
+body {
+    line-height: 1;
+}
+ol, ul {
+    list-style: none;
+}
+blockquote, q {
+    quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+    content: '';
+    content: none;
+}
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+    	#manual{
+    		position: absolute;
+    		left: 380px;
+    		top:120px;
+    	}
+    	#auto{
+    		position: absolute;
+    		left: 380px;
+    		top:180px;
+    	}
+    	#modeWrap{
+    		position: absolute;
+    		left: 300px;
+    		top:10px;
+    	}
+
+        p{
+            word-wrap: break-word;
+        }
+
+        #who{
+            position:absolute;
+            right:260px; 
+            top:80px; 
+            background-color:#DDD; 
+            border: 1px #AAA solid; 
+            visibility: hidden;
+            padding: 1px 3px 1px 3px;
+        }
+
+        #choosePlayers {
+            position: absolute;
+            margin-top: -60px;
+            /*left:50%;*/
+            width:90px;
+            height:30px;
+            margin-left:150px;
+        }
+
+        #general_window {
+            position: relative;
+            width: 500px;
+            top: 100px;
+            left: 500px;
+            display:inline-block;
+        }
+
+        #done {
+            margin-top:20px;
+            color:green;
+            border: 2px green solid;
+        }
+
+        .vert_line {
+            height: 100%;
+            width: 2px;
+            background-color: black;
+            margin-left: 50%;
+        }
+
+        table {
+            border: none;
+            border-collapse: collapse;
+            padding: 0;
+            margin: 0;
+        }
+
+        td {
+            height: 100%;
+        }
+
+        tr {
+            margin: 0 0 0 0 !important;
+            padding: 0 0 0 0 !important;
+        }
+
+        p {
+            padding: 0;
+            margin: 0;
+        }
+
+        button {
+            background-color: white;
+            border: 2px purple solid;
+            color: purple;
+            width: 80px;
+            height:30px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div>
+    
+    </div>
+    </form>
+
+        <script type="text/javascript">
+	 	var players = new Array();//[1, 2, 3, 4, 5, 6, 7, 8];
+         var rows = [1, 2, 3, 4, 5, 6, 7, 8];
+         var lines = new Array();
+         var paths = new Array();
+         var tasks = new Array();//["clean dishes", "laundry", "mop", "sleep", "eat", "sit", "trash", "live"];
+         var tasksMap = new Array();//[0,0,0,0,0,0,0,0];
+		 var maxSize = 0;
+		 var manual = false;
+		 var done = false;
+		 var confirm = false;
+		 var tat;
+		 var turns;
+		 var turnSwitch = 0;
+		 var lineStr = "";
+		 var trueMax;
+		 var trackPath = new Array();
+
+		 var sisters = new Array();
+		 var countLine = 0;
+
+	function randomInt(min, max) {
+  		return Math.floor(Math.random() * (max - min)) + min;
+	};
+
+
+	function playerPick(max){
+		var randCol = randomInt(0,max-1);
+		var randRow = randomInt(0,max);
+		
+		var line;
+		//if(randCol + 1 != max) 
+			line = "(" + randCol + "," + randRow + ")|(" + (randCol+1) + "," + (randRow) + ")";
+		//else
+
+		return line;
+	};
+
+	function randomDir(){
+		return randomInt(0,2);
+	}
+
+	function findPath(player){
+		var splitLine;
+		var option = player;
+		var str1 = "";
+		var str2 = "";
+		var oldRow = -1;
+		var found = false;
+		var tempTrack = new Array();
+		for(var i = 0; i < 8; i++){
+			for(var j = 0; j < lines.length; j++){
+				//console.log(lines[j]);
+				splitLine = lines[j].split("|");
+				str1 = splitLine[0];
+				str2 = splitLine[1];
+				splitLine[0] = str1.substring(1,splitLine[0].length-1).split(",");
+				splitLine[1] = str2.substring(1,splitLine[1].length-1).split(",");
+				//console.log(splitLine[0][1] + " ?> "+oldRow);
+				if(splitLine[0][1] > oldRow){
+					//console.log(splitLine[0][0] + "," + splitLine[0][1] + " | " + splitLine[1][0] + "," + splitLine[1][1]);
+					if(splitLine[0][0] == option || splitLine[1][0] == option){
+						if(splitLine[0][1] == i || splitLine[1][1] == i){
+							oldRow = splitLine[0][1];
+							found = true;
+							//console.log(curRow + " current row");
+							break;
+						}
+					}
+				}
+			}
+
+			if(found && splitLine[0][0] == option){
+				option = option + 1;
+				//console.log(splitLine[0][0] + " " + splitLine[0][1] + " right");
+				found = false;
+				tempTrack.push(splitLine[0][0] + "," + splitLine[0][1] + ",right");
+			}
+			else if(found && splitLine[1][0] == option){
+				option = option - 1;
+				//console.log(splitLine[1][0] + " " + splitLine[1][1] + " left");
+				found = false;
+				tempTrack.push(splitLine[1][0] + "," + splitLine[1][1] + ",left");
+			}
+			//console.log(option);	
+			
+		//console.log(splitLine[0] + "--- " + splitLine[1] + " ---");	
+		}
+		//console.log(tasks[option]);
+		trackPath.push(tempTrack);
+		console.log(tempTrack);
+		paths.push(tasks[option]);
+		tasksMap[option] = 1;
+		//console.log(option);
+	}
+
+	function findAvailTask(pathsArr){
+		var selectArr = new Array();
+		var indexArr = new Array();
+		var rand;
+		for(var i = 0; i < tasksMap.length; i++){
+			//console.log(i+": "+tasksMap[i]);
+			if(tasksMap[i] == 0){
+				selectArr.push(tasks[i]);
+				//console.log(tasks[i] + " --- \nend");
+				indexArr.push(i);
+			}
+		}
+		rand = randomInt(0,selectArr.length);
+		tasksMap[indexArr[rand]] = 1;
+		/*for(var i = 0; i < tasks.length; i++){
+			console.log(selectArr[i] + " --------------");
+		}*/
+		return selectArr[rand];
+	}
+
+ 	function runScript (e) {
+	    var history = new Array();
+	    //paths = new Array();
+            //if (e.keyCode == 13) {
+                //var lIndex = document.getElementById("input1").value;
+                
+		/*lines.push(lIndex);
+		history.push(lIndex);
+                lIndex = document.getElementById("input2").value;
+                lines.push(lIndex);
+		history.push(lIndex);
+                lIndex = document.getElementById("input3").value;
+                lines.push(lIndex);*/
+		var pick;
+		if(manual){
+			lines.push(document.getElementById("line0").value);
+			lines.push(document.getElementById("line1").value);
+			lines.push(document.getElementById("line2").value);
+
+			for(var i = 3; i < players.length; i++){
+				pick = document.getElementById("line"+i).value;
+				// Doesn't allow same line picked twice
+				if(history.indexOf(pick) > -1){
+					i--;
+					console.log("SAME LINE!" + pick);
+				}
+				else{
+					//console.log(pick + " picked");
+				  lines.push(pick);
+				  history.push(lines[lines.length - 1]);
+				
+				}
+				//console.log(lines[i]);
+			}
+		}
+		else{
+			lines.push(playerPick(maxSize));
+			lines.push(playerPick(maxSize));
+			lines.push(playerPick(maxSize));
+		
+
+			/*var temp = [
+				"(3,3)|(4,3)","(6,7)|(7,7)","(5,2)|(6,2)","(1,5)|(2,5)","(6,3)|(7,3)","(6,4)|(7,4)","(0,0)|(1,0)",
+				"(6,0)|(7,0)","(2,5)|(3,5)","(5,0)|(6,0)","(4,1)|(5,1)"
+			];*/
+			for(var i = 0; i < players.length; i++){
+				pick = playerPick(maxSize);
+				// Doesn't allow same line picked twice
+				if(history.indexOf(pick) > -1){
+					i--;
+					console.log("SAME LINE!" + pick);
+				}
+				else{
+					//console.log(pick + " picked");
+				  lines.push(pick);
+				  history.push(lines[lines.length - 1]);
+				
+				}
+				//console.log(lines[i]);
+			}
+		}
+		//console.log(lines.length);
+		//console.log(players.length);
+		if(players.length == 1)
+			paths = [tasks[0]];
+		else {
+			for(var i = 0; i < players.length; i++){
+				findPath(i);
+			}
+		}
+		// find duplicate tasks
+		for(var i = 0; i < paths.length; i++){
+			for(var j = i+1; j < paths.length; j++){
+				if(paths[i] == paths[j]){
+					paths[j] = findAvailTask(paths);
+					console.log(paths[j]);
+				}
+			}
+			document.getElementById("results").innerHTML += "Player" + (i+1) + ":  " + paths[i] + "<br>";
+			//console.log(paths[i]);
+		}
+
+		/*var playerTask = document.createElement("p");
+             	playerTask.innerHtml = "Player" + players[0] + ": " + lines.pop();
+		playerTask = document.createElement("p").innerHtml = "Player" + players[1] + ": " + lines.pop();
+		playerTask = document.createElement("p")
+             	document.getElementById("results").appendChild(playerTask);
+            }*/
+        //}// END IF code 13
+        done = false;
+        clearConfirm();
+        //travelGrid();
+    }
+	
+    Element.prototype.remove = function() {
+    	this.parentElement.removeChild(this);
+	}
+	HTMLCollection.prototype.remove = function() {
+	    for(var i = 0, len = this.length; i < len; i++) {
+	        if(this[i] && this[i].parentElement) {
+	            this[i].parentElement.removeChild(this[i]);
+	        }
+	    }
+	}
+
+	var createGrid = function (that){
+		    var tempT;
+            var tempTR;
+            var tempTD;
+        	var table = document.getElementById("grid");
+
+        	tat = that;
+        	if(manual){
+        		//hideManual();
+        		//manual = false;
+        		//document.getElementById("mode").innerHTML = "Auto";	
+        	}
+        	maxSize = that.value;
+        	document.getElementById("grid").innerHTML = "";
+        	document.getElementById("results").innerHTML = "<br>";
+        	confirm = false;
+		    document.getElementById("confirm").innerHTML = "false";
+		    var tDiv = document.createElement("div");
+        	paths = new Array();
+        	lines = new Array();
+        	players = new Array();
+        	history = new Array();
+        	tasks = new Array();
+        	tasksMap = new Array();
+        	countLine = 0;
+
+        	for(var a = 0; a < that.value; a++)
+        		players.push(a);
+
+    	    for(var i = 0; i < players.length; i++){
+    	    	tempT = document.createElement("table");
+    	    	tempT.id = "player" + i;
+    	    	//tempT.style.border = "1px green solid";
+    	    	tempT.style.display = "inline-block";
+                //tempT.style.padding = "10px 10px 10px 10px";
+                var tempP = document.createElement("p");
+                //tempP.innerHTML = "P" + i + "<br><hr>";
+                tempP.innerHTML = String.fromCharCode("A".charCodeAt(0) + i) + "<br><hr>";
+                tempP.style.textAlign = "center";
+                tempT.appendChild(tempP);
+    	    	table.appendChild(tempT);
+    	    	for(var j = 0; j < 8; j++){
+    	    		tempTR = document.createElement("tr");
+    	    		tempTD = document.createElement("td");
+                    tempTR.style.height = "30px";
+                    tempTR.style.width = "40px";
+                    tempTD.style.height = "30px";
+                    tempTD.style.width = "40px";
+                    //tempTD.style.padding = "5px 5px 5px 5px";
+                    //var temp = document.createElement("div");
+                    //temp.width = "2px";
+                    //temp.style.backgroundColor  = "black";
+                    tempTD.style.textAlign = "center";
+    	    		tempTD.innerHTML = "<div class='vert_line'></div>";
+
+    	    		tempTD.id = "col" + i + "row" + j;
+    	    		tempTD.onclick = function(){
+    	    			if(manual){
+    	    				
+    	    				if(countLine/2 < players.length + 3){
+    	    					console.log(countLine);
+    	    				if(countLine == (players.length + 2)*2){
+    	    					document.getElementById("who").innerHTML = "Last player picks line:";
+    	    				}
+    	    				else if(countLine/2 < 3){
+    	    					if(countLine == 5)	
+    	    						document.getElementById("who").innerHTML = "Player picks line:";
+    	    					else if(countLine < 5)
+    	    						document.getElementById("who").innerHTML = "User picks line:";
+    	    				}
+    	    				else if(countLine/2 >= 3 && countLine/2 < players.length + 2)
+    	    					document.getElementById("who").innerHTML = "Player picks line:";
+    	    				else{
+    	    					document.getElementById("who").innerHTML = "All lines ready!";
+                                document.getElementById("who").style.backgroundColor = "#66FF99";
+                            }
+
+                            var line = document.createElement("div");
+    	    				if(countLine % 2 != 0){
+    	    					//this.style.backgroundColor = colors[Math.floor(countLine/2)];
+                                line.style.zIndex = "100";
+                                line.style.width = this.style.width;
+                                line.style.height = "5px";
+                                line.style.width = "100%";
+                                line.style.marginTop = "-12px";
+                                line.style.backgroundColor = colors[Math.floor(countLine/2)];
+                                this.appendChild(line);
+    	    					sisters.push(this.id.charAt(3) +","+this.id.charAt(7));
+    	    					if( sisters[0].split(",")[0] >  sisters[1].split(",")[0]){
+    	    						var temp = sisters[0];
+    	    						sisters[0] = sisters[1];
+    	    						sisters[1] = temp;
+    	    					}
+    	    					lines.push("("+sisters[0]+")|("+sisters[1]+")");
+    	    				    console.log((countLine-1)/2);
+    	    					document.getElementById("line"+((countLine-1)/2)).value = "("+sisters[0]+")|("+sisters[1]+")";
+    	    					sisters = new Array();
+    	    					//sisters.push(this.id.charAt(3) +","+this.id.charAt(7));
+    	    				}
+    	    				else{
+    	    					sisters.push(this.id.charAt(3) +","+this.id.charAt(7));
+    	    					//this.style.backgroundColor = colors[Math.floor(countLine/2)];
+                                line.style.zIndex = "99";
+                                line.style.width = this.style.width;
+                                line.style.height = "5px";
+                                line.style.marginTop = "-12px";
+                                line.style.backgroundColor = colors[Math.floor(countLine/2)];
+                                this.appendChild(line);
+    	    					console.log(sisters[0] + " " + sisters[1] + " " + sisters[2] + " " + sisters[3]);
+    	    				}
+    	    				}
+    	    				countLine++;
+    	    			}
+    	    		}
+    	    		tempTR.appendChild(tempTD);
+    	    		tempT.appendChild(tempTR);
+                    tempT.style.textAlign = "center";
+                    if(j == 7){
+                        tempP = document.createElement("span");
+                        tempP.id = "taskp" + i;
+                        //tempP.innerHTML = document.getElementById("task" + i).value;
+                        tempP.innerHTML = i + 1;
+                        //tempP.styl
+                        tempT.appendChild(tempP);
+                    }
+    	    	}
+    	    }
+    	    turns = players.length;
+    	    trueMax = players.length;
+    	    document.body.insertBefore(tDiv, table);
+	}
+
+	var createInputTasks = function(that){
+		var tempI;
+	    var t = document.getElementById("tasks");
+    	while (t.firstChild) {
+			t.removeChild(t.firstChild);
+		}
+		for(var i = 0; i < that.value; i++){
+			tempI = document.createElement("input");
+			tempI.type = "text";
+			tempI.name = "task" + i;
+			tempI.id = "task" + i;
+			tempI.value = "Input_Task_" + (i + 1);
+            var tempL = document.createElement("label");
+            tempL.style.marginLeft = "7px";
+            tempL.style.marginRight = "7px";
+            var t = document.createTextNode(i + 1);
+            tempL.setAttribute("for", "task" + i);
+            tempL.appendChild(t);
+            document.getElementById("tasks").appendChild(tempL);
+			document.getElementById("tasks").appendChild(tempI);
+			document.getElementById("tasks").appendChild(document.createElement("br"));
+			tasksMap.push(0);
+		}
+	}
+
+	var getInputTasks = function(){
+		var temp;
+		tasks = new Array();
+		for(var i = 0; i < players.length; i++){
+			tasks.push(document.getElementById("task" + i).value);
+		}
+	}
+
+	var manualInputs = function(){
+			var inputs;
+			var dispManOpt = document.createElement("div");
+			dispManOpt.id = "manualInput";
+			dispManOpt.style.border = "2px blue solid";
+			dispManOpt.style.position = "absolute";
+			dispManOpt.style.right = "160px";
+			dispManOpt.style.top = "110px";
+			for(var i = 0; i < 3; i++){
+				inputs = document.createElement("input");
+				inputs.type = "text";
+				inputs.name = "line" + i;
+				inputs.id = "line" + i;
+                inputs.style.width = "100px";
+				inputs.value = "("+0+","+i+")|("+1+","+i+")";
+				var x = document.createElement("LABEL");
+    			var t = document.createTextNode("User Line " + (i+1) + ": ");
+    			x.setAttribute("for", "line" + i);
+    			x.appendChild(t);
+    			dispManOpt.appendChild(x);
+    			dispManOpt.appendChild(inputs);
+				dispManOpt.appendChild(document.createElement("br"));
+
+			}
+			
+			for(var i = 3; i < players.length + 3; i++){
+				inputs = document.createElement("input");
+				inputs.type = "text";
+				inputs.name = "line" + i;
+				inputs.id = "line" + i;
+				inputs.value = "("+0+","+i+")|("+1+","+i+")";
+                inputs.style.width = "100px";
+				dispManOpt.appendChild(inputs);
+				var x = document.createElement("LABEL");
+    			var t = document.createTextNode("Player Line " + (i+1) + ": ");
+    			x.setAttribute("for", "line" + i);
+    			x.appendChild(t);
+    			dispManOpt.appendChild(x);
+    			dispManOpt.appendChild(inputs);
+				dispManOpt.appendChild(document.createElement("br"));
+			}
+			
+			document.body.appendChild(dispManOpt);
+	}
+
+	var hideManual = function(){
+		var node = document.getElementById("manualInput");
+		while (node.hasChildNodes()) {
+    		node.removeChild(node.lastChild);
+		}
+		document.body.removeChild(node);
+		
+	}
+
+	var updateMode = function(){
+		if(manual)
+			document.getElementById("mode").innerHTML = "Manual";
+		else
+			document.getElementById("mode").innerHTML = "Auto";
+	}
+
+	var getConfirm = function(){
+		confirm = true;
+		document.getElementById("confirm").innerHTML = "true";
+	}
+
+	var clearConfirm = function(){
+		confirm = false;
+		document.getElementById("confirm").innerHTML = "false";
+	}
+
+	var moveI = 0;
+	var trackI = 0;
+	var colors = ["gray","gray","gray","yellow", "green", "red", "orange", "blue", "pink", "purple", "brown"];
+	var move = function(){
+		console.log(trackPath[trackI] + " _----");
+		var split =  trackPath[trackI][moveI].split(",");
+		document.getElementById("col"+split[0]+"row"+split[1]).style.backgroundColor = colors[trackI];
+		console.log("col"+(split[0]+1)+"row");
+		if(split[2] == "right")
+			document.getElementById("col"+(split[0]+1)+"row"+split[1]).style.backgroundColor = colors[trackI];
+		else
+			document.getElementById("col"+(split[0]-1)+"row"+split[1]).style.backgroundColor = colors[trackI];
+		if(moveI == trackPath[trackI].length-1){
+			moveI = 0;
+			trackI++;
+		}
+		else
+			moveI++;
+	}
+
+	var travelGrid = function(){
+		var t = setInterval(function(){
+			if(trackI == trueMax-1)
+				clearInterval(t);
+			move(moveI);
+		}, 500);
+
+	}
+
+	/*var readGrid = function(that, max, trueMax){
+		if(turnSwitch == 0){
+			lineStr += "(" + that.value + ",";
+			turnSwitch++;
+		}
+		else if(turnSwitch == 1){
+			lineStr += "," +that.value + ")"
+			turnSwitch = 0;
+			turns--;
+			console.log(document.getElementById("line" + (trueMax - max)));
+			document.getElementById("line" + (trueMax - max)).value = lineStr;
+			lineStr = "";
+		}
+	}*/
+
+    /*var updateTasks = function(){
+        for(var i = 0; i < lines.length; i++)
+            document.getElementById("taskp" + i).innerHTML = 
+
+    }*/
+	</script>
+
+    <button style="position:absolute; top:40px; left:120px" onclick = "if(done){getConfirm();}">Confirm</button>
+
+    <button style="position:absolute; top:400px; left:120px" onclick = "   if(done){createGrid(tat); 
+        createInputTasks(tat); 
+        getInputTasks(); 
+        runScript(event);
+        document.getElementById('who').innerHTML = 'User picks line:';
+        document.getElementById('who').style.backgroundColor = '#DDD';
+        }">Assign</button>
+
+    <div id="general_window">
+		<label for="choosePlayers" style="position:absolute; margin-top: -50px;">Choose # of players: </label>
+    	<select id="choosePlayers" onchange= "createInputTasks(this); createGrid(this); if(manual){hideManual(); manualInputs();} document.getElementById('who').innerHTML = 'User picks line:';" >
+    	  <option value="0" >?</option>	
+		  <option value="1" >1</option>
+		  <option value="2">2</option>
+		  <option value="3">3</option>
+		  <option value="4">4</option>
+		  <option value="5">5</option>
+		  <option value="6">6</option>
+		  <option value="7">7</option>
+		  <option value="8">8</option>
+		</select><br>
+
+	    <div id="tasks" style="width:280px; border: red solid 2px;"></div>
+	    <p id="modeWrap">Mode: <span id="mode">Auto (default)</span></p>
+	    
+	    <p id="confirmp">Confirm: <span id="confirm">false</span></p>
+        <button id="done" onclick="document.getElementById('results').innerHTML = '<br>';if(!done){done = true;}">Done</button>
+
+	    <div id="results" style="width:280px; border: black solid 2px;">
+	    </div>
+    </div>
+	    <p id="who"></p>
+        <button id="manual" onclick="if(!manual){manual = true; updateMode(); manualInputs();
+            document.getElementById('who').style.visibility = 'visible';}">Manual</button>
+        <button id="auto" onclick="if(manual){manual = false; updateMode(); hideManual();
+            document.getElementById('who').style.visibility = 'hidden';}">Auto</button>
+	    <table id = "grid" style="position:absolute; top:90px; left:20px">
+	    </table>
+    	    <!--<script type="text/javascript">createGrid();</script>-->
+</body>
+</html>
